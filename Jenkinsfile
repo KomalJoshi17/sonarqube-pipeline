@@ -2,7 +2,7 @@ pipeline {
    agent {
        docker {
            image 'node:20-alpine'
-           args '--network jsN'
+           args '-u root'
        }
    }
 
@@ -10,7 +10,7 @@ pipeline {
    environment {
 
 
-       SONAR_HOST_URL = 'http://sonarqube:9000'
+       SONAR_HOST_URL = 'http://192.168.56.1:9000'
 
 
        SONAR_PROJECT_KEY = 'qjs'
