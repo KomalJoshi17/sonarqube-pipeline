@@ -9,7 +9,7 @@ pipeline {
 
     environment {
 
-        SONAR_HOST_URL = 'http://10.35.137.13:9000'
+        SONAR_HOST_URL = 'http://192.168.56.1:9000'
 
         SONAR_PROJECT_KEY = 'qjs'
         SONAR_PROJECT_NAME = 'qjs'
