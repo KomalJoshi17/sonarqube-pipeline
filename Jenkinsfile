@@ -1,92 +1,104 @@
 pipeline {
+   agent {
+       docker {
+           image 'node:20-alpine'
+           args '--network jsN'
+       }
+   }
 
-    agent {
-        docker {
-            image 'node:20-alpine'
-            args '-u root'
-        }
-    }
 
-    environment {
+   environment {
 
-        SONAR_HOST_URL = 'http://192.168.56.1:9000'
 
-        SONAR_PROJECT_KEY = 'qjs'
-        SONAR_PROJECT_NAME = 'qjs'
+       SONAR_HOST_URL = 'http://sonarqube:9000'
 
-        SONAR_TOKEN = credentials('SONAR_TOKEN')
-    }
 
-    stages {
+       SONAR_PROJECT_KEY = 'qjs'
+       SONAR_PROJECT_NAME = 'qjs'
 
-        stage('Checkout') {
-            steps {
-                echo 'Checking out code from GitHub...'
-                checkout scm
-            }
-        }
 
-        stage('Install Dependencies') {
-            steps {
-                sh 'npm install'
-            }
-        }
+       SONAR_TOKEN = credentials('SONAR_TOKEN')
+   }
 
-        stage('Build') {
-            steps {
-                sh 'npm run build'
-            }
-        }
 
-        stage('SonarQube Analysis') {
+   stages {
+       stage('Checkout') {
+           steps {
+               echo 'Checking out code from GitHub...'
+               checkout scm
+           }
+       }
 
-            steps {
 
-                withSonarQubeEnv('sonarqube-server') {
+       stage('Install Dependencies') {
+           steps {
+               sh 'npm install'
+           }
+       }
 
-                    sh 'apk add --no-cache curl unzip openjdk17-jre'
 
-                    sh '''
-                        curl -sSLo /tmp/sonar-scanner.zip \
-                        https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610.zip
-                    '''
+       stage('Build') {
+           steps {
+               sh 'npm run build'
+           }
+       }
 
-                    sh 'unzip -q /tmp/sonar-scanner.zip -d /opt'
 
-                    sh '''
-                        /opt/sonar-scanner-6.2.1.4610/bin/sonar-scanner \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                        -Dsonar.sources=src \
-                        -Dsonar.host.url=${SONAR_HOST_URL} \
-                        -Dsonar.token=${SONAR_TOKEN} \
-                        -Dsonar.exclusions=node_modules/**,dist/** \
-                        -Dsonar.typescript.tsconfigPath=tsconfig.json
-                    '''
-                }
-            }
-        }
+       stage('SonarQube Analysis') {
+           steps {
+               withSonarQubeEnv('sonarqube-server') {
 
-        stage('Test') {
 
-            steps {
-                sh 'npm test'
-            }
-        }
-    }
+                   sh 'apk add --no-cache curl unzip openjdk21-jre'
 
-    post {
 
-        always {
-            echo 'Pipeline completed!'
-        }
+                   sh '''
+                       curl -sSLo /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610.zip
+                       unzip -q /tmp/sonar-scanner.zip -d /opt
+                   '''
 
-        success {
-            echo 'Build successful! SonarQube analysis completed.'
-        }
 
-        failure {
-            echo 'Build failed.'
-        }
-    }
+                   sh '''
+                       /opt/sonar-scanner-6.2.1.4610/bin/sonar-scanner \
+                       -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                       -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
+                       -Dsonar.sources=src \
+                       -Dsonar.host.url=${SONAR_HOST_URL} \
+                       -Dsonar.token=${SONAR_TOKEN} \
+                       -Dsonar.exclusions=node_modules/**,dist/** \
+                       -Dsonar.typescript.tsconfigPath=tsconfig.json
+                   '''
+               }
+           }
+       }
+
+
+       stage('Quality Gate') {
+           steps {
+               timeout(time: 5, unit: 'MINUTES') {
+                   waitForQualityGate abortPipeline: true
+               }
+           }
+       }
+
+
+       stage('Test') {
+           steps {
+               sh 'npm test'
+           }
+       }
+   }
+
+
+   post {
+       always {
+           echo 'Pipeline completed!'
+       }
+       success {
+           echo 'Build successful! Code quality passed SonarQube checks.'
+       }
+       failure {
+           echo 'Build failed. Check SonarQube for issues.'
+       }
+   }
 }
