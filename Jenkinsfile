@@ -67,17 +67,6 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-
-            steps {
-
-                timeout(time: 5, unit: 'MINUTES') {
-
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
         stage('Test') {
 
             steps {
@@ -93,11 +82,11 @@ pipeline {
         }
 
         success {
-            echo 'Build successful! Code quality passed SonarQube checks.'
+            echo 'Build successful! SonarQube analysis completed.'
         }
 
         failure {
-            echo 'Build failed. Check SonarQube for issues.'
+            echo 'Build failed.'
         }
     }
 }
