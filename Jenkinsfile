@@ -21,6 +21,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
+                echo 'Checking out code from GitHub...'
                 checkout scm
             }
         }
@@ -59,13 +60,26 @@ pipeline {
                         -Dsonar.sources=src \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \
-                        -Dsonar.exclusions=node_modules/**,dist/**
+                        -Dsonar.exclusions=node_modules/**,dist/** \
+                        -Dsonar.typescript.tsconfigPath=tsconfig.json
                     '''
                 }
             }
         }
 
+        stage('Quality Gate') {
+
+            steps {
+
+                timeout(time: 5, unit: 'MINUTES') {
+
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Test') {
+
             steps {
                 sh 'npm test'
             }
@@ -74,12 +88,16 @@ pipeline {
 
     post {
 
+        always {
+            echo 'Pipeline completed!'
+        }
+
         success {
-            echo 'SonarQube Analysis Successful'
+            echo 'Build successful! Code quality passed SonarQube checks.'
         }
 
         failure {
-            echo 'Pipeline Failed'
+            echo 'Build failed. Check SonarQube for issues.'
         }
     }
 }
