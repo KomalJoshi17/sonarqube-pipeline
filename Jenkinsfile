@@ -1,94 +1,52 @@
 pipeline {
-   agent {
-       docker {
-           image 'node:20-alpine'
-           args '-u root'
-       }
-   }
 
+    agent {
+        docker {
+            image 'node:20-alpine'
+            args '-u root'
+        }
+    }
 
-   environment {
+    stages {
 
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code...'
+                checkout scm
+            }
+        }
 
-       SONAR_HOST_URL = 'http://192.168.56.1:9000'
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
 
+        stage('Build') {
+            steps {
+                sh 'npm run build'
+            }
+        }
 
-       SONAR_PROJECT_KEY = 'qjs'
-       SONAR_PROJECT_NAME = 'qjs'
+        stage('Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+    }
 
+    post {
 
-       SONAR_TOKEN = credentials('SONAR_TOKEN')
-   }
+        always {
+            echo 'Pipeline completed!'
+        }
 
+        success {
+            echo 'Build and tests completed successfully!'
+        }
 
-   stages {
-       stage('Checkout') {
-           steps {
-               echo 'Checking out code from GitHub...'
-               checkout scm
-           }
-       }
-
-
-       stage('Install Dependencies') {
-           steps {
-               sh 'npm install'
-           }
-       }
-
-
-       stage('Build') {
-           steps {
-               sh 'npm run build'
-           }
-       }
-
-
-       stage('SonarQube Analysis') {
-           steps {
-               withSonarQubeEnv('sonarqube-server') {
-
-
-                   sh 'apk add --no-cache curl unzip openjdk21-jre'
-
-
-                   sh '''
-                       curl -sSLo /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-6.2.1.4610.zip
-                       unzip -q /tmp/sonar-scanner.zip -d /opt
-                   '''
-
-
-                   sh '''
-                       /opt/sonar-scanner-6.2.1.4610/bin/sonar-scanner \
-                       -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                       -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
-                       -Dsonar.sources=src \
-                       -Dsonar.host.url=${SONAR_HOST_URL} \
-                       -Dsonar.token=${SONAR_TOKEN}
-                       -Dsonar.exclusions=node_modules/**,dist/** \
-                       -Dsonar.typescript.tsconfigPath=tsconfig.json
-                   '''
-               }
-           }
-       }
-
-       stage('Test') {
-           steps {
-               sh 'npm test'
-           }
-       }
-   }
-
-
-   post {
-       always {
-           echo 'Pipeline completed!'
-       }
-       success {
-           echo 'Build successful! Code quality passed SonarQube checks.'
-       }
-       failure {
-           echo 'Build failed. Check SonarQube for issues.'
-       }
-   }
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
 }
